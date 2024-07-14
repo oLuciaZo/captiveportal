@@ -1,24 +1,42 @@
 <?php
-	
-	$ldap_dn = "cn=sitita,dc=arubathailand,dc=xyz";
-	$ldap_password = "password";
-	
-	$ldap_con = ldap_connect("10.5.255.252");
-	
-	ldap_set_option($ldap_con, LDAP_OPT_PROTOCOL_VERSION, 3);
-	
-	if(ldap_bind($ldap_con, $ldap_dn, $ldap_password)) {
+// Sanitize input (if needed)
+//$ldaprdn = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
+$ldapuser = $_POST['username'].'@arubathailand.xyz';
+$ldappass = $_POST['password']; // Password should not be sanitized
+$ldapconn = ldap_connect("ldap://10.5.255.252") or die("Could not connect to LDAP server.");
+//echo $ldaprdn;
+$pos = strpos($ldapuser, '@');
 
-		$filter = "(cn=sitita)";
-		$result = ldap_search($ldap_con,"dc=arubathailand,dc=xyz",$filter) or exit("Unable to search");
-		$entries = ldap_get_entries($ldap_con, $result);
-		
-		print "<pre>";
-		print_r ($entries);
-		print "</pre>";
-	} else {
-		echo "Invalid user/pass or other errors!";
-	}
-	
-	
+// Extract the substring from the start to the position of '@'
+$username = substr($ldapuser, 0, $pos);
+if (!$ldapconn) {
+die("Could not connect to LDAP server.");
+}
+
+ldap_set_option($ldapconn, LDAP_OPT_PROTOCOL_VERSION, 3);
+ldap_set_option($ldapconn, LDAP_OPT_REFERRALS, 0);
+
+$ldapbind = ldap_bind($ldapconn, $ldapuser, $ldappass);
+
+if ($ldapbind) {
+echo "LDAP bind successful...<br>";
+
+    // Perform LDAP search
+$result = ldap_search($ldapconn, "dc=arubathailand,dc=xyz", "(samaccountname=$username)", array("dc"));
+
+		if ($result) {
+			$data = ldap_get_entries($ldapconn, $result);
+
+		if ($data['count'] > 0) {
+			echo "Search successful:<br>";
+			print_r($data);
+		} else {
+			echo "User not found.";
+		}
+		} else {
+			echo "LDAP search failed.";
+		}
+		} else {
+			echo "LDAP bind failed...";
+		}
 ?>
